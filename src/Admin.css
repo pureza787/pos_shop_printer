@@ -1,0 +1,215 @@
+/* --- ตั้งค่าสีธีม (Emerald Dark Theme) --- */
+:root {
+  --bg-main: #1a1a2e;    /* พื้นหลังหลัก */
+  --bg-panel: #242442;   /* พื้นหลังการ์ด */
+  --text-light: #e0e0e0; /* ตัวหนังสือสีขาว */
+  --text-dark: #a0a0b0;  /* ตัวหนังสือสีเทา */
+  --accent: #00e676;     /* สีเขียวมรกต (ปุ่ม/สถานะ) */
+  --danger: #ff3d00;     /* สีแดง (แจ้งเตือน/ลบ) */
+  --warning: #f59e0b;    /* สีส้ม (แก้ไข) */
+}
+
+/* โครงสร้างหลัก */
+.admin-container {
+  display: flex;
+  height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-light);
+  overflow: hidden;
+}
+
+/* เมนูซ้าย (Sidebar) */
+.admin-sidebar {
+  width: 250px;
+  background-color: var(--bg-panel);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+}
+
+.sidebar-title {
+  color: var(--accent);
+  margin: 0 0 30px 10px;
+  font-size: 24px;
+}
+
+.menu-item {
+  padding: 15px 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 16px;
+  transition: all 0.3s;
+  color: var(--text-dark);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.menu-item:hover {
+  background-color: rgba(0, 230, 118, 0.1);
+  color: var(--accent);
+}
+
+.menu-item.active {
+  background-color: var(--accent);
+  color: var(--bg-main);
+}
+
+/* พื้นที่เนื้อหา (Content) */
+.admin-content {
+  flex: 1;
+  padding: 30px;
+  overflow-y: auto;
+}
+
+.page-title {
+  margin-top: 0;
+  margin-bottom: 30px;
+  font-size: 32px;
+}
+
+/* การ์ด (Card) */
+.admin-card {
+  background-color: var(--bg-panel);
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--bg-main);
+}
+
+/* ปุ่ม (Buttons) */
+.btn-primary {
+  padding: 12px 25px;
+  background-color: var(--accent);
+  color: var(--bg-main);
+  border: none;
+  border-radius: 30px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 16px;
+  transition: transform 0.1s;
+}
+.btn-primary:active { transform: scale(0.98); }
+
+.btn-secondary {
+  padding: 8px 15px;
+  background-color: transparent;
+  color: var(--text-dark);
+  border: 1px solid var(--text-dark);
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* ฟอร์ม (Form Inputs) */
+.form-input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--bg-main);
+  background-color: var(--bg-main);
+  color: var(--text-light);
+  margin-bottom: 15px;
+  outline: none;
+}
+.form-input:focus { border-color: var(--accent); }
+
+/* Grid Layouts */
+.kitchen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 25px;
+}
+
+.menu-layout {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 30px;
+  align-items: start;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 25px;
+  margin-bottom: 30px;
+}
+
+/* ระบบ PIN Lock */
+.pin-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 70vh;
+}
+.pin-display {
+  font-size: 40px;
+  letter-spacing: 10px;
+  text-align: center;
+  margin-bottom: 30px;
+  color: var(--accent);
+  height: 60px;
+}
+.numpad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  max-width: 300px;
+  margin: 20px auto;
+}
+.num-btn {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background-color: transparent;
+  color: var(--text-light);
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.num-btn:hover { background-color: var(--accent); color: var(--bg-main); }
+
+/* --- ส่วนที่เพิ่มใหม่สำหรับ History Table --- */
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.history-table th {
+  text-align: left;
+  padding: 12px;
+  background-color: var(--bg-main);
+  color: var(--text-dark);
+  font-size: 14px;
+}
+
+.history-table td {
+  padding: 15px 12px;
+  border-bottom: 1px solid var(--bg-main);
+  font-size: 16px;
+}
+
+.history-table tr:last-child td {
+  border-bottom: none;
+}
+
+.history-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
