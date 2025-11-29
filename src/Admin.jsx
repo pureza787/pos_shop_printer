@@ -6,10 +6,10 @@ import {
 import './Admin.css'
 
 const ADMIN_PIN = '8888';
-const APP_VERSION = 'v1.1.0 (Sound On)'; 
+const APP_VERSION = 'v2.1.0 (Sound On)'; 
 const MASTER_CATEGORIES = [
   'อาหารจานเดียว', 'ก๋วยเตี๋ยว', 'กับข้าว', 'ท็อปปิ้ง', 
-  'ส้มตำ/ยำ', 'สเต็ก', 'เครื่องดื่ม', 'น้ำปั่น', 'กาแฟ/คาเฟ่', 'ของหวาน'
+  'ส้มตำ/ยำ', 'สเต็ก', 'เครื่องดื่ม', 'น้ำปั่น', 'กาแฟ/คาเฟ่', 'ของหวาน','ของทานเล่น',
 ];
 
 const getTodayStr = () => {
@@ -21,7 +21,9 @@ const getTodayStr = () => {
 };
 
 function Admin() {
-  const [tab, setTab] = useState('kitchen')
+  // ✅ แก้จุดที่ 1: เปลี่ยนหน้าแรกเป็น 'dashboard' (ยอดขาย) เปิดมาเจอเลย ไม่ต้องเจอหน้าครัว
+  const [tab, setTab] = useState('dashboard')
+
   const [products, setProducts] = useState([])
   const [orders, setOrders] = useState([]) 
   const [historyList, setHistoryList] = useState([]) 
@@ -34,24 +36,23 @@ function Admin() {
   const [isMenuLocked, setIsMenuLocked] = useState(true)
   const [pinInput, setPinInput] = useState('')
 
-  // 👇 ตัวแปรสำหรับระบบแจ้งเตือนเสียง
+  // 👇 ตัวแปรสำหรับระบบแจ้งเตือนเสียง (เก็บไว้เหมือนเดิม กัน Error)
   const prevOrderCountRef = useRef(0);
-  const isFirstLoad = useRef(true); // กันไม่ให้เสียงดังตอนเพิ่งเปิดเว็บ
+  const isFirstLoad = useRef(true); 
 
   useEffect(() => {
     // โหลดสินค้า
     const unsubProducts = onSnapshot(collection(db, "products"), (snap) => setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
     
-    // 👇 แก้ไขส่วนโหลดออเดอร์ ให้มีเสียงเตือน
+    // 👇 ยังคงโหลดออเดอร์ไว้ข้างหลัง (เพื่อให้ระบบเสถียร ไม่ Error)
     const unsubOrders = onSnapshot(query(collection(db, "orders"), orderBy("timestamp", "asc")), (snap) => {
         const newOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         
-        // เช็กว่าเป็นครั้งแรกที่โหลดหน้าเว็บไหม?
         if (isFirstLoad.current) {
             isFirstLoad.current = false;
             prevOrderCountRef.current = newOrders.length;
         } else {
-            // ถ้าไม่ใช่ครั้งแรก และออเดอร์เพิ่มขึ้น -> เล่นเสียง!
+            // ถ้าออเดอร์เข้า ยังมีเสียงเตือนติ๊ง (ถ้าไม่ต้องการเสียง ลบบรรทัด playSound ออกได้ครับ)
             if (newOrders.length > prevOrderCountRef.current) {
                 playSound();
             }
@@ -79,16 +80,16 @@ function Admin() {
     return () => { unsubProducts(); unsubOrders(); unsubSalesLog(); unsubHistory(); };
   }, [selectedDate]) 
 
-  // 👇 ฟังก์ชันเล่นเสียง (เรียกไฟล์ alert.wav จากโฟลเดอร์ public)
   const playSound = () => {
     try {
-        const audio = new Audio('/alert.wav'); // 🔔 ตรวจสอบชื่อไฟล์ให้ตรงกับที่วางใน public
+        const audio = new Audio('/alert.wav'); 
         audio.play().catch(e => console.log("Audio Error (Chrome might block auto-play):", e));
     } catch (err) {
         console.error("Sound Error:", err);
     }
   }
 
+  // ฟังก์ชันเดิม เก็บไว้ครบถ้วน กัน Error
   const markAsServed = async (order) => { 
     if (!confirm('ยืนยันเสิร์ฟและปิดบิล?')) return; 
     try {
@@ -100,7 +101,6 @@ function Admin() {
             dateLabel: todayStr 
         });
         await deleteDoc(doc(db, "orders", order.id));
-        // ลดจำนวนที่จำไว้ เพื่อให้ระบบรู้ว่าออเดอร์หายไป 1 (เดี๋ยวพอลูกค้าสั่งมาใหม่จะได้ดัง)
         prevOrderCountRef.current = Math.max(0, prevOrderCountRef.current - 1);
     } catch (err) {
         console.error("Error serving:", err);
@@ -108,7 +108,6 @@ function Admin() {
     }
   }
 
-  // ... (ฟังก์ชันอื่นๆ เหมือนเดิมเป๊ะ)
   const handleCloseDay = async () => {
     if (!confirm(`ยืนยันรวมยอดของวันที่ ${selectedDate} และล้างประวัติ?`)) return;
     try {
@@ -199,10 +198,13 @@ function Admin() {
     <div className="admin-container">
       <div className="admin-sidebar">
         <h2 className="sidebar-title">⚡ POS System</h2>
-        <div onClick={() => setTab('kitchen')} className={`menu-item ${tab === 'kitchen' ? 'active' : ''}`}>🍳 ออเดอร์เข้า ({orders.length})</div>
+        
+        {/* ✅ แก้จุดที่ 2: ลบปุ่ม "ออเดอร์เข้า" ออกไปแล้วครับ */}
+        {/* <div onClick={() => setTab('kitchen')} ... > ... </div>  <-- ลบทิ้ง */}
+        
+        <div onClick={() => setTab('dashboard')} className={`menu-item ${tab === 'dashboard' ? 'active' : ''}`}>📊 ยอดขาย</div>
         <div onClick={() => setTab('history')} className={`menu-item ${tab === 'history' ? 'active' : ''}`}>📜 ประวัติบิล</div>
         <div onClick={() => { setTab('menu'); setIsMenuLocked(true); }} className={`menu-item ${tab === 'menu' ? 'active' : ''}`}>🍔 เมนู 🔒</div>
-        <div onClick={() => setTab('dashboard')} className={`menu-item ${tab === 'dashboard' ? 'active' : ''}`}>📊 ยอดขาย</div>
         
         <div className="version-tag">
            Ver: {APP_VERSION}
@@ -211,38 +213,14 @@ function Admin() {
 
       <div className="admin-content">
         <h1 className="page-title">
-          {tab === 'kitchen' ? '👨‍🍳 ออเดอร์รอเสิร์ฟ' : 
-           tab === 'history' ? '📜 ประวัติบิลย้อนหลัง' :
+          {/* ปรับ Title ให้ตรงตามหน้า */}
+          {tab === 'history' ? '📜 ประวัติบิลย้อนหลัง' :
            tab === 'menu' ? '⚙️ จัดการร้าน' : '📊 สรุปยอดขาย'}
         </h1>
 
-        {/* --- KITCHEN TAB --- */}
-        {tab === 'kitchen' && (
-          <div className="kitchen-grid">
-            {orders.length === 0 ? (
-              <div className="empty-state"><h2>✅ ครัวว่างครับ!</h2><p>รอออเดอร์ลูกค้า...</p></div>
-            ) : orders.map((order) => (
-              <div key={order.id} className={`admin-card order-card ${order.status === 'cooked' ? 'cooked-highlight' : ''}`}>
-                <div className="card-header">
-                  <span className="table-no">โต๊ะ {order.table_no}</span>
-                  {order.status === 'cooked' && <span className="badge-cooked">ครัวทำเสร็จแล้ว</span>}
-                  <span className="order-time">{order.timestamp?.seconds ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}) : ''}</span>
-                </div>
-                <ul className="order-list">
-                  {order.items.map((item, idx) => (
-                    <li key={idx} className="order-item">
-                      {item.name} <span className="item-cat">({item.category})</span> <span style={{color:'orange'}}>x{item.qty||1}</span>
-                      {item.note && <div className="item-note">⚠️ {item.note}</div>}
-                    </li>
-                  ))}
-                </ul>
-                <button onClick={() => markAsServed(order)} className="btn-primary full-width">เสิร์ฟ</button> {/* ⬅️ แก้ไขแล้ว */}
-              </div>
-            ))}
-          </div>
-        )}
+        {/* ✅ แก้จุดที่ 3: ลบส่วนแสดงผลหน้า Kitchen Grid ออกทั้งหมด */}
 
-        {/* ส่วน Tab อื่นๆ (History, Menu, Dashboard) เหมือนเดิม */}
+        {/* --- ส่วน Tab อื่นๆ คงไว้เหมือนเดิม 100% --- */}
         {tab === 'history' && (
            <div className="vertical-stack">
              <div className="history-controls admin-card">

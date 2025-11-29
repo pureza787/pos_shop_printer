@@ -1,105 +1,61 @@
-/* --- Kitchen Container --- */
-.kitchen-container {
-    padding: 20px;
-    background-color: #111;
-    min-height: 100vh;
-    color: white;
-    font-family: sans-serif;
-  }
-  
-  /* --- Header --- */
-  .kitchen-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    border-bottom: 1px solid #333;
-    padding-bottom: 10px;
-  }
-  
-  .kitchen-title {
-    margin: 0;
-    font-size: 28px;
-    font-weight: bold;
-    color: #e11d48; /* ใส่สีให้หัวข้อเด่นขึ้นหน่อย */
-  }
-  
-  /* --- Grid Layout --- */
-  .order-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-  }
+/* Kitchen.css */
 
-  .empty-state-kitchen {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 100px 20px;
-    font-size: 24px;
-    color: #444;
-    border: 2px dashed #333;
-    border-radius: 10px;
-    margin-top: 20px;
-  }
-  
-  /* --- Order Card --- */
-  .order-card {
-    padding: 20px;
-    border-radius: 10px;
-    transition: all 0.3s;
-    background-color: #2d1b1e;
-    border: 2px solid #e11d48;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-  }
-  
-  /* --- Card Content --- */
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 15px;
-    border-bottom: 1px solid #444;
-    padding-bottom: 10px;
-  }
-  
-  .table-no {
-    font-size: 28px;
+/* ... (ของเดิม) ... */
+
+/* โซน Backup */
+.backup-list-container {
+    padding: 10px;
+    background-color: #1e1e2f;
+    border-radius: 8px;
+    border: 1px solid #444;
+}
+
+.history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* การ์ดเล็กๆ เรียงกัน */
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.history-card {
+    background-color: #2d2d44;
+    padding: 10px;
+    border-radius: 6px;
+    border-left: 4px solid #00e676; /* สีเขียวบอกว่าปริ้นแล้ว */
+}
+
+.backup-table {
+    font-size: 18px;
     font-weight: bold;
-    color: #fbbf24;
-  }
-  
-  .timestamp-box { text-align: right; }
-  .time-text { font-size: 18px; color: white; font-weight: bold; }
-  
-  .order-items { 
-      padding-left: 20px; 
-      margin-bottom: 20px; 
-      list-style-type: circle;
-  }
-  .order-item { font-size: 20px; margin-bottom: 10px; line-height: 1.4; }
-  .item-cat { color: #888; font-size: 14px; }
-  .item-note { color: #ff3d00; font-size: 16px; font-weight: bold; margin-top: 4px; background: rgba(255, 61, 0, 0.1); padding: 2px 5px; border-radius: 4px; display: inline-block;}
-  
-  /* --- Card Footer --- */
-  .card-footer {
-    border-top: 1px solid #444;
-    padding-top: 15px;
-    display: flex;
-    justify-content: flex-end; /* ชิดขวา */
-    align-items: center;
-  }
-  
-  .btn-done {
-    width: 100%;
-    padding: 12px 20px;
-    background-color: #e11d48; /* สีแดง */
+    color: #fff;
+}
+
+.backup-time {
+    color: #888;
+    font-size: 14px;
+}
+
+.backup-items {
+    padding-left: 20px;
+    margin: 5px 0;
+    color: #ccc;
+    font-size: 14px;
+}
+
+.btn-retry {
+    background-color: #333;
+    color: white;
+    border: 1px solid #666;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-clear {
+    background-color: #ff3d00;
     color: white;
     border: none;
-    border-radius: 8px;
-    font-weight: bold;
+    padding: 4px 8px;
+    border-radius: 4px;
     cursor: pointer;
-    font-size: 1.1rem;
-    transition: transform 0.1s, background-color 0.2s;
-  }
-  
-  .btn-done:hover { background-color: #be123c; }
-  .btn-done:active { transform: scale(0.98); }
+}

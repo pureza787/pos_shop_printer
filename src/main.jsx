@@ -1,16 +1,21 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App.jsx'       // หน้าร้าน
-import Kitchen from './Kitchen.jsx' // หน้าครัว
-import Admin from './Admin.jsx'     // หน้าแอดมิน
+import App from './App.jsx'       
+import Kitchen from './Kitchen.jsx' 
+import Admin from './Admin.jsx'     
 import './index.css'
 
-// ตรวจสอบ URL เพื่อเลือกว่าจะเปิดหน้าไหน
-const path = window.location.pathname;
+// 1. แปลง URL เป็นตัวพิมพ์เล็กทั้งหมดก่อนเช็ค (แก้ปัญหา /Kitchen vs /kitchen)
+const path = window.location.pathname.toLowerCase();
 
 let Component = App; // ค่าเริ่มต้นคือหน้าร้าน
-if (path === '/kitchen') Component = Kitchen;
-if (path === '/admin') Component = Admin;
+
+// 2. เช็คเงื่อนไข
+if (path === '/kitchen') {
+  Component = Kitchen;
+} else if (path === '/admin') {
+  Component = Admin;
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
