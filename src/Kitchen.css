@@ -1,61 +1,72 @@
-/* Kitchen.css */
+/* Kitchen.css - ส่วนเพิ่ม */
 
-/* ... (ของเดิม) ... */
-
-/* โซน Backup */
 .backup-list-container {
-    padding: 10px;
     background-color: #1e1e2f;
+    padding: 15px;
     border-radius: 8px;
-    border: 1px solid #444;
+    margin-top: 10px;
 }
 
 .history-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* การ์ดเล็กๆ เรียงกัน */
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 10px;
-    margin-top: 15px;
 }
 
 .history-card {
-    background-color: #2d2d44;
+    background-color: #2a2a3c;
+    border-left: 4px solid #00e676; /* แถบเขียว */
     padding: 10px;
-    border-radius: 6px;
-    border-left: 4px solid #00e676; /* สีเขียวบอกว่าปริ้นแล้ว */
+    border-radius: 4px;
+}
+
+.card-header-mini {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+    margin-bottom: 5px;
 }
 
 .backup-table {
-    font-size: 18px;
+    font-size: 1.2rem;
     font-weight: bold;
     color: #fff;
 }
 
 .backup-time {
+    font-size: 0.9rem;
     color: #888;
-    font-size: 14px;
 }
 
 .backup-items {
-    padding-left: 20px;
-    margin: 5px 0;
-    color: #ccc;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.95rem;
+    color: #ddd;
+}
+
+.backup-items li {
+    margin-bottom: 4px;
+}
+
+.btn-retry, .btn-clear {
+    flex: 1;
+    border: none;
+    padding: 6px;
+    border-radius: 4px;
+    cursor: pointer;
     font-size: 14px;
 }
 
 .btn-retry {
     background-color: #333;
     color: white;
-    border: 1px solid #666;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
 }
 
 .btn-clear {
-    background-color: #ff3d00;
+    background-color: #d32f2f;
     color: white;
-    border: none;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
 }
