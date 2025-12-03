@@ -2,46 +2,40 @@ import { useState, useEffect, useRef } from 'react'
 import { db } from './firebase'
 import { 
   collection, addDoc, serverTimestamp, query, where, onSnapshot, 
-  deleteDoc, doc, orderBy 
+  deleteDoc, doc 
 } from 'firebase/firestore'
 import './App.css'
 
 function App() {
-  // --- 1. State Variables ---
   const [cart, setCart] = useState([])
   const [myOrders, setMyOrders] = useState([])
   const [isOrdering, setIsOrdering] = useState(false)
   const [showCartDetails, setShowCartDetails] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+
   const [menuItems, setMenuItems] = useState([])
-  
-  // --- 2. Category ---
   const [selectedCategory, setSelectedCategory] = useState('ทั้งหมด')
   const [activeCategories, setActiveCategories] = useState([])
   const CATEGORIES = ['ทั้งหมด', ...activeCategories]
 
-  // --- 3. Noodle Popup State (อัปเดตใหม่) ---
   const [showNoodleModal, setShowNoodleModal] = useState(false)
   const [selectedNoodleDish, setSelectedNoodleDish] = useState(null)
   
-  // ตัวเลือกก๋วยเตี๋ยว
   const [noodleType, setNoodleType] = useState('เส้นเล็ก')
   const [soupType, setSoupType] = useState('น้ำใส')
-  const [noodleSize, setNoodleSize] = useState('ธรรมดา') // ธรรมดา, พิเศษ
-  const [noodleOptions, setNoodleOptions] = useState([]) // เก็บตัวเลือกเสริม (ไม่ผัก, ไม่กระเทียม ฯลฯ)
-  const [noodleQty, setNoodleQty] = useState(1) // จำนวนชาม
+  const [noodleSize, setNoodleSize] = useState('ธรรมดา')
+  const [noodleOptions, setNoodleOptions] = useState([])
+  const [noodleQty, setNoodleQty] = useState(1)
 
-  // ข้อมูลตัวเลือก (Constants)
   const NOODLE_LIST = ['เส้นเล็ก', 'เส้นหมี่', 'เส้นใหญ่', 'บะหมี่', 'วุ้นเส้น', 'มาม่า', 'เกาเหลา'];
   const SOUP_LIST = ['น้ำใส', 'น้ำตก', 'ต้มยำ', 'ต้มยำน้ำข้น', 'แห้ง'];
   const EXTRA_LIST = ['ไม่ใส่ผัก', 'ไม่ใส่กระเทียมเจียว', 'ไม่ชูรส', 'เผ็ดน้อย', 'เผ็ดมาก'];
 
-  // --- 4. Drag Scroll ---
   const scrollRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
 
-  // --- 5. Initial Data ---
   const params = new URLSearchParams(window.location.search);
   const tableNo = params.get('table') || '1';
 
@@ -51,27 +45,25 @@ function App() {
        if (d.exists() && d.data().categories) setActiveCategories(d.data().categories); 
        else setActiveCategories(['อาหารจานเดียว', 'ก๋วยเตี๋ยว', 'เครื่องดื่ม']);
     });
-    const qOrder = query(collection(db, "orders"), where("table_no", "==", tableNo), orderBy("timestamp", "desc"));
-    const unsubOrders = onSnapshot(qOrder, (snap) => setMyOrders(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    
+    const qOrder = query(collection(db, "orders"), where("table_no", "==", tableNo));
+    const unsubOrders = onSnapshot(qOrder, (snap) => {
+        let list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+        setMyOrders(list);
+    });
     return () => { unsubProducts(); unsubSettings(); unsubOrders(); };
   }, [tableNo])
 
-  // --- 6. Logic ---
   const handleMouseDown = (e) => { setIsDragging(true); setStartX(e.pageX - scrollRef.current.offsetLeft); setScrollLeft(scrollRef.current.scrollLeft); };
   const handleMouseUp = () => setIsDragging(false);
   const handleMouseLeave = () => setIsDragging(false);
   const handleMouseMove = (e) => { if (!isDragging) return; e.preventDefault(); const x = e.pageX - scrollRef.current.offsetLeft; const walk = (x - startX) * 2; scrollRef.current.scrollLeft = scrollLeft - walk; };
 
-  // Cart Logic
   const handleItemClick = (item) => {
     if (item.category === 'ก๋วยเตี๋ยว') {
-      // Reset ค่าทุกครั้งที่กดเลือกใหม่
       setSelectedNoodleDish(item); 
-      setNoodleType('เส้นเล็ก'); 
-      setSoupType('น้ำใส');
-      setNoodleSize('ธรรมดา');
-      setNoodleOptions([]);
-      setNoodleQty(1);
+      setNoodleType('เส้นเล็ก'); setSoupType('น้ำใส'); setNoodleSize('ธรรมดา'); setNoodleOptions([]); setNoodleQty(1);
       setShowNoodleModal(true);
     } else {
       addToCart(item); 
@@ -79,51 +71,23 @@ function App() {
   }
 
   const addToCart = (item, customNote = '') => {
-    setCart(prev => [...prev, { ...item, uniqueId: Date.now() + Math.random(), note: customNote }])
+    setCart(prev => [...prev, { ...item, uniqueId: Date.now() + Math.random(), note: customNote, qty: 1, price: Number(item.price) }])
   }
-
-  // ฟังก์ชั่นจัดการตัวเลือกเสริม (Checkbox logic)
-  const toggleNoodleOption = (opt) => {
-    if (noodleOptions.includes(opt)) {
-      setNoodleOptions(noodleOptions.filter(o => o !== opt));
-    } else {
-      setNoodleOptions([...noodleOptions, opt]);
-    }
-  }
-
-  const adjustQty = (amount) => {
-    const newQty = noodleQty + amount;
-    if (newQty >= 1) setNoodleQty(newQty);
-  }
-
+  const toggleNoodleOption = (opt) => { if (noodleOptions.includes(opt)) setNoodleOptions(noodleOptions.filter(o => o !== opt)); else setNoodleOptions([...noodleOptions, opt]); }
+  const adjustQty = (amount) => { const newQty = noodleQty + amount; if (newQty >= 1) setNoodleQty(newQty); }
   const confirmNoodleOrder = () => {
     if (!selectedNoodleDish) return;
-    
-    // คำนวณราคา (บวกเพิ่มถ้าพิเศษ)
-    const basePrice = selectedNoodleDish.price;
+    const basePrice = Number(selectedNoodleDish.price);
     const extraPrice = noodleSize === 'พิเศษ' ? 10 : 0;
     const finalPrice = basePrice + extraPrice;
-
-    // สร้างชื่อเมนูยาวๆ
     const optionString = noodleOptions.length > 0 ? ` [${noodleOptions.join(', ')}]` : '';
     const fullName = `${selectedNoodleDish.name} (${noodleType} ${soupType}) - ${noodleSize}${optionString}`;
-
-    // วนลูปตามจำนวน (Qty) เพื่อเพิ่มเข้าตะกร้าทีละชาม
-    for (let i = 0; i < noodleQty; i++) {
-      addToCart({ 
-        ...selectedNoodleDish, 
-        name: fullName, 
-        price: finalPrice 
-      });
-    }
-
-    setShowNoodleModal(false); 
-    setSelectedNoodleDish(null);
+    for (let i = 0; i < noodleQty; i++) { addToCart({ ...selectedNoodleDish, name: fullName, price: finalPrice }); }
+    setShowNoodleModal(false); setSelectedNoodleDish(null);
   }
-
   const removeFromCart = (uid) => setCart(cart.filter(i => i.uniqueId !== uid))
   const updateNote = (uid, text) => setCart(cart.map(i => i.uniqueId === uid ? { ...i, note: text } : i))
-
+  
   const handleConfirmOrder = async () => {
     if (cart.length === 0) return;
     setIsOrdering(true);
@@ -135,16 +99,14 @@ function App() {
     } catch (e) { alert("❌ ผิดพลาด: " + e.message); } finally { setIsOrdering(false); }
   }
 
-  const handleCancelOrder = async (oid) => {
-    if (confirm("ยืนยันยกเลิกออเดอร์นี้?")) { try { await deleteDoc(doc(db, "orders", oid)); } catch (e) { alert("ลบไม่ได้: " + e.message); } }
-  }
-
   const filteredItems = menuItems.filter(i => {
     const matchCat = selectedCategory === 'ทั้งหมด' || i.category === selectedCategory;
     const isAct = activeCategories.includes(i.category);
     return matchCat && i.available !== false && isAct;
   });
+  
   const cartTotal = cart.reduce((s, i) => s + i.price, 0);
+  const grandTotalHistory = myOrders.reduce((sum, order) => sum + (order.total_price || 0), 0);
 
   return (
     <div className="app-container">
@@ -153,10 +115,20 @@ function App() {
         <div className="header-top">
           <div className="logo-group">
              <img src="https://chonburiartmediagroup.com/wp-content/uploads/2021/02/LOGO26-960x673.jpg" alt="Logo" className="logo-img" />
-             <h1 className="app-title">ร้านอร่อยสั่งได้</h1>
+             <h1 className="app-title">ร้านอร่อย</h1>
           </div>
-          <span className="table-badge">โต๊ะ {tableNo}</span>
+          
+          <div className="header-actions">
+            {myOrders.length > 0 && (
+                <button onClick={() => setShowHistoryModal(true)} className="history-toggle-btn">
+                   📋 ที่สั่งไป
+                   <span className="count-badge">฿{grandTotalHistory.toLocaleString()}</span>
+                </button>
+            )}
+            <span className="table-badge">โต๊ะ {tableNo}</span>
+          </div>
         </div>
+
         <div className="category-scroll" ref={scrollRef} onMouseDown={handleMouseDown} onMouseLeave={handleMouseLeave} onMouseUp={handleMouseUp} onMouseMove={handleMouseMove}>
           {CATEGORIES.map(cat => (
             <button key={cat} onClick={() => { if(!isDragging) setSelectedCategory(cat); }} className={`category-btn ${selectedCategory === cat ? 'active' : ''}`}>{cat}</button>
@@ -185,22 +157,63 @@ function App() {
         )}
       </div>
 
-      {/* HISTORY */}
-      {myOrders.length > 0 && (
-        <div className="history-container">
-            <h3 className="section-title">📋 รายการที่สั่งไป</h3>
-            {myOrders.map((order) => (
-              <div key={order.id} className={`history-card ${order.status === 'served' ? 'served' : 'kitchen'}`}>
-                <div className="history-header">
-                  <span>{order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...'}</span>
-                  <span className={order.status === 'served' ? 'status-served' : 'status-kitchen'}>{order.status === 'served' ? '✅ เสิร์ฟแล้ว' : '👨‍🍳 กำลังทำ'}</span>
-                </div>
-                {order.items.map((item, idx) => (
-                  <div key={idx} className="history-item-name">- {item.name}{item.note && <span className="history-item-note"> ({item.note})</span>}</div>
+      {/* ✅ HISTORY MODAL (ปรับสีตัวหนังสือเป็นสีดำ) */}
+      {showHistoryModal && (
+        <div className="cart-modal-overlay" onClick={() => setShowHistoryModal(false)}>
+          <div className="cart-modal-content" onClick={e => e.stopPropagation()}>
+             <div className="modal-header">
+                <h3>📋 รายการที่สั่งไปแล้ว</h3>
+                <button onClick={() => setShowHistoryModal(false)} className="btn-close-modal">✖</button>
+             </div>
+             
+             {/* ยอดรวม */}
+             <div style={{
+                 backgroundColor: '#d1fae5', /* สีเขียวอ่อนกว่าเดิมให้อ่านง่าย */
+                 border: '1px solid #10b981',
+                 borderRadius: '8px',
+                 padding: '15px',
+                 marginBottom: '15px',
+                 display: 'flex',
+                 justifyContent: 'space-between',
+                 alignItems: 'center'
+             }}>
+                 <span style={{color:'#064e3b', fontWeight:'bold'}}>ยอดรวมทั้งสิ้น</span>
+                 <span style={{color:'#064e3b', fontSize:'1.5rem', fontWeight:'bold'}}>
+                    ฿{grandTotalHistory.toLocaleString()}
+                 </span>
+             </div>
+
+             {/* รายการอาหาร (ปรับสีดำ Black) */}
+             <div style={{maxHeight:'55vh', overflowY:'auto'}}>
+                {myOrders.length === 0 && <p style={{textAlign:'center', color:'#999'}}>ยังไม่ได้สั่งอะไรเลย</p>}
+                
+                {myOrders.map((order, index) => (
+                    <div key={order.id} style={{
+                        borderBottom: '1px solid #ddd', 
+                        padding: '12px 0'
+                    }}>
+                        <div style={{fontSize:'0.85rem', color:'#555', marginBottom:'6px', fontWeight:'500'}}>
+                            บิลที่ {myOrders.length - index} • {order.timestamp ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'} น.
+                        </div>
+                        
+                        {order.items.map((item, idx) => (
+                           <div key={idx} style={{display:'flex', justifyContent:'space-between', marginBottom:'6px', alignItems:'flex-start'}}>
+                                {/* ชื่อเมนูสีดำชัดๆ */}
+                                <div style={{color:'#000', fontSize:'1rem', fontWeight:'500'}}>
+                                    {item.name} 
+                                    {item.qty > 1 && <span style={{color:'#d32f2f', fontWeight:'bold', marginLeft:'5px'}}>x{item.qty}</span>}
+                                    {item.note && <div style={{fontSize:'0.85rem', color:'#d35400'}}>📝 {item.note}</div>}
+                                </div>
+                                {/* ราคาสีดำเข้ม */}
+                                <span style={{color:'#000', fontWeight:'bold', minWidth:'50px', textAlign:'right'}}>
+                                   {(item.price * (item.qty || 1)).toLocaleString()}
+                                </span>
+                           </div>
+                        ))}
+                    </div>
                 ))}
-                {order.status === 'kitchen' && (<button onClick={() => handleCancelOrder(order.id)} className="cancel-btn">ยกเลิก</button>)}
-              </div>
-            ))}
+             </div>
+          </div>
         </div>
       )}
 
@@ -218,7 +231,10 @@ function App() {
           {showCartDetails && (
             <div className="cart-modal-overlay" onClick={() => setShowCartDetails(false)}>
               <div className="cart-modal-content" onClick={e => e.stopPropagation()}>
-                <h3 className="cart-modal-title">🛒 ตะกร้าสินค้า</h3>
+                <div className="modal-header">
+                    <h3 className="cart-modal-title">🛒 ตะกร้าสินค้า</h3>
+                    <button onClick={() => setShowCartDetails(false)} className="btn-close-modal">✖</button>
+                </div>
                 {cart.map((item) => (
                   <div key={item.uniqueId} className="cart-item">
                     <div className="cart-item-header">
@@ -237,13 +253,11 @@ function App() {
         </>
       )}
 
-      {/* NOODLE MODAL (ปรับปรุงใหม่) */}
+      {/* NOODLE MODAL */}
       {showNoodleModal && (
         <div className="cart-modal-overlay" onClick={() => setShowNoodleModal(false)}>
           <div className="cart-modal-content noodle-modal" onClick={e => e.stopPropagation()}>
-            <h3 className="noodle-title">🍜 ปรุงก๋วยเตี๋ยวชามโปรด</h3>
-            
-            {/* 1. เลือกเส้น */}
+            <h3 className="noodle-title">🍜 ปรุงก๋วยเตี๋ยว</h3>
             <div className="noodle-section">
               <h4 className="noodle-label">เลือกเส้น</h4>
               <div className="noodle-options">
@@ -252,8 +266,6 @@ function App() {
                 ))}
               </div>
             </div>
-
-            {/* 2. เลือกน้ำซุป */}
             <div className="noodle-section">
               <h4 className="noodle-label">เลือกน้ำซุป</h4>
               <div className="noodle-options">
@@ -262,8 +274,6 @@ function App() {
                 ))}
               </div>
             </div>
-
-            {/* 3. ขนาด (Size) */}
             <div className="noodle-section">
               <h4 className="noodle-label">ขนาด</h4>
               <div className="size-selector">
@@ -275,8 +285,6 @@ function App() {
                 </button>
               </div>
             </div>
-
-            {/* 4. เพิ่มเติม (Checkbox) */}
             <div className="noodle-section">
               <h4 className="noodle-label">เพิ่มเติม</h4>
               <div className="noodle-options-grid">
@@ -287,20 +295,16 @@ function App() {
                 ))}
               </div>
             </div>
-
-            {/* 5. จำนวน + ปุ่มยืนยัน */}
             <div className="noodle-footer-action">
               <div className="qty-control">
                 <button onClick={() => adjustQty(-1)} className="qty-btn">-</button>
                 <span className="qty-display">{noodleQty}</span>
                 <button onClick={() => adjustQty(1)} className="qty-btn">+</button>
               </div>
-              
               <button onClick={confirmNoodleOrder} className="order-btn confirm-noodle-btn">
-                ใส่ตะกร้า {((selectedNoodleDish?.price + (noodleSize === 'พิเศษ' ? 10 : 0)) * noodleQty)} ฿
+                ใส่ตะกร้า {((Number(selectedNoodleDish?.price) + (noodleSize === 'พิเศษ' ? 10 : 0)) * noodleQty)} ฿
               </button>
             </div>
-
           </div>
         </div>
       )}
