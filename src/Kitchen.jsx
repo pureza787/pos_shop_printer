@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { db } from './firebase'
 import { 
-  collection, query, orderBy, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp 
+  collection, query, onSnapshot, doc, updateDoc // เปลี่ยน deleteDoc เป็น updateDoc
 } from 'firebase/firestore'
 import './Kitchen.css'
 
@@ -9,7 +9,6 @@ function Kitchen() {
   const [orders, setOrders] = useState([])
   const [lastPrinted, setLastPrinted] = useState(null)
   
-  // ใช้ useRef เพื่อกันการปริ้นซ้ำ และกันการทำงานตอนโหลดครั้งแรก
   const printedOrderIds = useRef(new Set()) 
   const isFirstLoad = useRef(true)
 
@@ -29,24 +28,14 @@ function Kitchen() {
       ? new Date(order.timestamp.seconds * 1000).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})
       : '-';
 
-    let text = "";
-    // Init & Align Center
-    text += "\x1b\x40"; 
-    text += "\x1b\x61\x01"; 
-
-    // Header
-    text += "\x1d\x21\x11" + `โต๊ะ ${order.table_no || order.tableNo}` + "\n"; 
-    text += "\x1d\x21\x00" + `เวลา: ${timeStr}` + "\n";
-    text += "--------------------------------\n";
+    let text = "\x1b\x40\x1b\x61\x01\x1d\x21\x11" + `โต๊ะ ${order.table_no || order.tableNo}\n`; 
+    text += "\x1d\x21\x00" + `เวลา: ${timeStr}\n--------------------------------\n\x1b\x61\x00`;
     
-    // Items (Align Left)
-    text += "\x1b\x61\x00"; 
     order.items.forEach(item => {
       text += `${item.name}`;
       if (item.qty > 1) text += `  x${item.qty}`;
       text += "\n";
       
-      // Note / Options
       let details = [];
       if (item.noodle) details.push(item.noodle);
       if (item.soup) details.push(item.soup);
@@ -54,51 +43,32 @@ function Kitchen() {
       if (item.note) details.push(`(${item.note})`);
       if (item.options && item.options.length > 0) details.push(`[${item.options.join(',')}]`);
       
-      if (details.length > 0) {
-        text += `  ${details.join(' ')}\n`;
-      }
+      if (details.length > 0) text += `  ${details.join(' ')}\n`;
     });
 
-    text += "--------------------------------\n";
-    text += "\x1b\x61\x01"; 
-    text += "จบรายการ\n\n\n"; 
-    
+    text += "--------------------------------\n\x1b\x61\x01จบรายการ\n\n\n"; 
     return text;
   }
 
-  // --- 3. ฟังก์ชันรวมคำสั่งปริ้น ---
   const printOrder = (order) => {
       const data = generatePrintData(order);
       sendToRawBT(data);
   }
 
-  // --- 4. ฟังก์ชัน Auto Process: ปริ้น -> บันทึกประวัติ -> ลบออกจากจอ ---
+  // --- 4. ฟังก์ชัน Auto Process: ปริ้น -> อัปเดตสถานะ (ไม่ลบ) ---
   const autoProcessOrder = async (order) => {
     try {
-      console.log(`🚀 กำลังประมวลผลโต๊ะ: ${order.table_no}`);
+      console.log(`🚀 Processing Table: ${order.table_no}`);
       
-      // 1. สั่งปริ้นทันที
+      // 1. สั่งปริ้น
       printOrder(order); 
       setLastPrinted(`โต๊ะ ${order.table_no} (${new Date().toLocaleTimeString()})`);
 
-      // สร้างวันที่ YYYY-MM-DD เพื่อให้ Admin ดึงข้อมูลเจอ
-      const d = new Date();
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      const todayStr = `${year}-${month}-${day}`;
-
-      // 2. บันทึกเข้า Collection 'history_orders' (แก้ตรงนี้เพื่อให้ Admin เห็น)
-      await addDoc(collection(db, 'history_orders'), {
-        ...order,
-        status: 'served',
-        finishedAt: serverTimestamp(), // ใช้ชื่อ field นี้เพื่อให้ Admin เรียงเวลาได้
-        dateLabel: todayStr,           // ใช้ field นี้เพื่อให้ Admin กรองวันที่ได้
-        total_price: order.total_price || order.items.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0)
+      // 2. แก้ไข: เปลี่ยนสถานะเป็น served แทนการลบทิ้ง!
+      // เพื่อให้ Admin ยังเห็นรายการนี้อยู่ และกดเก็บเงินได้
+      await updateDoc(doc(db, 'orders', order.id), {
+        status: 'served'
       });
-
-      // 3. ลบออกจากรายการ Orders (เพื่อให้หายไปจากหน้าจอครัวและหน้า Admin Active)
-      await deleteDoc(doc(db, 'orders', order.id));
       
       console.log(`✅ Auto-processed order: ${order.id}`);
     } catch (error) {
@@ -106,32 +76,36 @@ function Kitchen() {
     }
   }
 
-  // --- 5. Main Logic (Realtime Listener) ---
+  // --- 5. Main Logic ---
   useEffect(() => {
-    const q = query(collection(db, 'orders'), orderBy('timestamp', 'asc'))
+    // ลบ orderBy ออก เพื่อกัน Error เรื่อง Index
+    const q = query(collection(db, 'orders'))
+    
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const newOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      let allOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       
+      // เรียงลำดับเองใน JS (เก่า -> ใหม่)
+      allOrders.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+
       if (isFirstLoad.current) {
-        // โหลดครั้งแรก: แค่จำ ID ไว้ ไม่ปริ้น ไม่ลบ (กันพลาดลบออเดอร์เก่าที่ค้างมาก่อนหน้านี้)
-        newOrders.forEach(o => printedOrderIds.current.add(o.id));
-        setOrders(newOrders);
+        allOrders.forEach(o => printedOrderIds.current.add(o.id));
+        // กรองเฉพาะที่ยังทำไม่เสร็จแสดงบนจอครัว
+        setOrders(allOrders.filter(o => o.status === 'kitchen'));
         isFirstLoad.current = false;
         return;
       }
 
-      setOrders(newOrders);
-
-      // เช็คออเดอร์ใหม่ที่เข้ามา
-      newOrders.forEach(order => {
-        if (!printedOrderIds.current.has(order.id)) {
-          // เจอของใหม่!
+      // เช็คออเดอร์ใหม่ (เฉพาะสถานะ kitchen)
+      allOrders.forEach(order => {
+        if (order.status === 'kitchen' && !printedOrderIds.current.has(order.id)) {
           printedOrderIds.current.add(order.id);
-          
-          // เรียกใช้ฟังก์ชันจัดการอัตโนมัติ
           autoProcessOrder(order);
         }
       });
+
+      // อัปเดตหน้าจอ (แสดงเฉพาะรายการที่ยังไม่ได้เสิร์ฟ หรือจะแสดงหมดก็ได้แล้วแต่ชอบ)
+      // ในที่นี้ให้แสดงเฉพาะที่สถานะเป็น 'kitchen' เพื่อให้รู้ว่ามีอะไรต้องทำบ้าง
+      setOrders(allOrders.filter(o => o.status === 'kitchen'));
     })
     return () => unsubscribe()
   }, [])
@@ -139,20 +113,17 @@ function Kitchen() {
   return (
     <div className="kitchen-container">
       <div className="kitchen-header">
-        <h1 className="kitchen-title">👨‍🍳 ครัว (Auto Print & Clear)</h1>
-        {/* แสดงสถานะล่าสุด เพื่อความอุ่นใจว่าระบบทำงานอยู่ */}
+        <h1 className="kitchen-title">👨‍🍳 ครัว (Auto Print)</h1>
         {lastPrinted && <div style={{color:'#00e676', marginTop:'10px'}}>🖨️ ล่าสุด: {lastPrinted}</div>}
       </div>
 
       <div className="empty-state-kitchen">
-        {/* หน้าจอจะว่างเกือบตลอดเวลา เพราะออเดอร์มาแล้วก็ไป */}
-        <p style={{opacity: 0.5, fontSize: '1.2rem'}}>... รอรับคำสั่ง (เครื่องจะปริ้นอัตโนมัติ) ...</p>
-        
-        {/* แสดงสถานะถ้ามีออเดอร์ค้าง (กำลัง process) */}
-        {orders.length > 0 && (
-          <div style={{color: '#f59e0b', marginTop: '20px'}}>
+        {orders.length === 0 ? (
+           <p style={{opacity: 0.5, fontSize: '1.2rem'}}>... รอรับคำสั่ง ...</p>
+        ) : (
+           <div style={{color: '#f59e0b', marginTop: '20px'}}>
              กำลังประมวลผล {orders.length} รายการ...
-          </div>
+           </div>
         )}
       </div>
     </div>
