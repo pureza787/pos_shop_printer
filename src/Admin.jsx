@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { db } from './firebase'
 import { 
@@ -8,7 +9,7 @@ import './Admin.css'
 const ADMIN_PIN = '8888'; 
 const APP_VERSION = 'v2.8.0 (Fixed)'; 
 const MASTER_CATEGORIES = [
-  'อาหารจานเดียว', 'ก๋วยเตี๋ยว', 'กับข้าว', 'ท็อปปิ้ง', 
+  'อาหารจานเดียว', 'ก่วยเตี่ยว', 'กับข้าว', 'ท็อปปิ้ง', 
   'ส้มตำ/ยำ', 'สเต็ก', 'เครื่องดื่ม', 'น้ำปั่น', 'กาแฟ/คาเฟ่', 'ของหวาน','ของทานเล่น',
 ];
 
@@ -44,10 +45,8 @@ function Admin() {
   useEffect(() => {
     const unsubProducts = onSnapshot(collection(db, "products"), (snap) => setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
     
-    // ✅ แก้ไข: เอา orderBy ออก เพื่อป้องกันจอดำ
     const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
         let newOrders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        // เรียงใน JS แทน
         newOrders.sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
 
         if (isFirstLoad.current) {
@@ -66,7 +65,6 @@ function Admin() {
         setHistoryList(list);
     });
 
-    // Logs (เอา orderBy ออกเช่นกัน กันเหนียว)
     const unsubSalesLog = onSnapshot(collection(db, "daily_sales"), (snap) => {
         let logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         logs.sort((a,b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
@@ -141,7 +139,7 @@ function Admin() {
     const timeStr = new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
 
     let text = "\x1b\x40\x1b\x61\x01\x1d\x21\x11" + "ใบเสร็จรับเงิน\n"; 
-    text += "\x1d\x21\x00" + "ร้านก๋วยเตี๋ยวรสเด็ด\n--------------------------------\n";
+    text += "\x1d\x21\x00" + "ร้านก๋วยเตี่ยวรสเด็ด\n--------------------------------\n";
     text += `โต๊ะ: ${tableNo}  เวลา: ${timeStr}\n--------------------------------\n\x1b\x61\x00`;
     consolidated.forEach(item => {
       text += `${item.name}`;
@@ -248,7 +246,7 @@ function Admin() {
       {showTablePinModal && (
           <div className="pin-overlay">
               <div className="admin-card pin-card">
-                <h3 style={{color:'var(--warning)', marginBottom:'10px'}}>🔐 รหัสแก้ไขโต๊ะ {targetTableToUnlock}</h3>
+                <h3 style={{color:'var(--warning)', marginBottom:'10px'}}>🔓 รหัสแก้ไขโต๊ะ {targetTableToUnlock}</h3>
                 <div className="pin-dots">{'•'.repeat(tablePinInput.length)}</div>
                 <div className="numpad">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0].map(n => (
@@ -261,15 +259,15 @@ function Admin() {
       )}
       <div className="admin-sidebar">
         <div className="sidebar-title">⚡ POS System</div>
-        <div onClick={() => setTab('tables')} className={`menu-item ${tab === 'tables' ? 'active' : ''}`}>🪑 จัดการโต๊ะ</div>
+        <div onClick={() => setTab('tables')} className={`menu-item ${tab === 'tables' ? 'active' : ''}`}>🍽️ จัดการโต๊ะ</div>
         <div onClick={() => setTab('dashboard')} className={`menu-item ${tab === 'dashboard' ? 'active' : ''}`}>📊 ยอดขาย</div>
         <div onClick={() => setTab('history')} className={`menu-item ${tab === 'history' ? 'active' : ''}`}>📜 ประวัติบิล</div>
-        <div onClick={() => { setTab('menu'); setIsMenuLocked(true); }} className={`menu-item ${tab === 'menu' ? 'active' : ''}`}>🍔 เมนู 🔒</div>
+        <div onClick={() => { setTab('menu'); setIsMenuLocked(true); }} className={`menu-item ${tab === 'menu' ? 'active' : ''}`}>🍜 เมนู 🔒</div>
         <div className="version-tag">{APP_VERSION}</div>
       </div>
       <div className="admin-content">
         <h1 className="page-title">
-          {tab === 'tables' ? '🪑 สถานะโต๊ะล่าสุด' : tab === 'history' ? '📜 ประวัติบิลย้อนหลัง' : tab === 'menu' ? '⚙️ จัดการร้าน' : '📊 สรุปยอดขาย'}
+          {tab === 'tables' ? '🍽️ สถานะโต๊ะล่าสุด' : tab === 'history' ? '📜 ประวัติบิลย้อนหลัง' : tab === 'menu' ? '⚙️ จัดการร้าน' : '📊 สรุปยอดขาย'}
         </h1>
         {tab === 'tables' && (
           <div className="grid-tables">
@@ -384,6 +382,7 @@ function Admin() {
                     <button key={n} onClick={() => n === 'C' ? setMenuPinInput('') : handleMenuPinPress(n.toString())} className={`num-btn ${n === 'C' ? 'btn-clear' : ''}`}>{n}</button>
                   ))}
                 </div>
+                <button onClick={() => setTab('tables')} className="btn-secondary btn-full">ยกเลิก</button>
               </div>
             </div>
           ) : (
@@ -426,9 +425,11 @@ function Admin() {
                       </div>
                     </div>
                     <div className="action-btns">
-                      <button onClick={() => toggleAvailable(p)} className="btn-icon btn-toggle" title="เปิด/ปิด ของหมด">{!p.available ? '🛒' : '🚫'}</button>
-                      <button onClick={() => startEdit(p)} className="btn-icon btn-edit">✏️</button>
-                      <button onClick={() => handleDelete(p.id)} className="btn-icon btn-del">🗑️</button>
+                      <button onClick={() => toggleAvailable(p)} className={`btn-icon btn-toggle ${!p.available ? 'sold-out' : ''}`}>
+                        {p.available ? ' เปิดขาย' : ' ของหมด'}
+                      </button>
+                      <button onClick={() => startEdit(p)} className="btn-icon btn-edit"> แก้ไข</button>
+                      <button onClick={() => handleDelete(p.id)} className="btn-icon btn-del"> ลบ</button>
                     </div>
                   </div>
                 ))}
