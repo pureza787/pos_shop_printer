@@ -75,6 +75,8 @@ function App() {
   }
   const toggleNoodleOption = (opt) => { if (noodleOptions.includes(opt)) setNoodleOptions(noodleOptions.filter(o => o !== opt)); else setNoodleOptions([...noodleOptions, opt]); }
   const adjustQty = (amount) => { const newQty = noodleQty + amount; if (newQty >= 1) setNoodleQty(newQty); }
+  
+  // ✅ แก้ไขส่วนที่ 1: เพิ่ม isExtra เพื่อระบุว่าเป็นชามพิเศษ
   const confirmNoodleOrder = () => {
     if (!selectedNoodleDish) return;
     const basePrice = Number(selectedNoodleDish.price);
@@ -82,19 +84,63 @@ function App() {
     const finalPrice = basePrice + extraPrice;
     const optionString = noodleOptions.length > 0 ? ` [${noodleOptions.join(', ')}]` : '';
     const fullName = `${selectedNoodleDish.name} (${noodleType} ${soupType}) - ${noodleSize}${optionString}`;
-    for (let i = 0; i < noodleQty; i++) { addToCart({ ...selectedNoodleDish, name: fullName, price: finalPrice }); }
+    
+    // เช็คว่าพิเศษหรือไม่
+    const isExtra = noodleSize === 'พิเศษ';
+
+    for (let i = 0; i < noodleQty; i++) { 
+        addToCart({ 
+            ...selectedNoodleDish, 
+            name: fullName, 
+            price: finalPrice,
+            isExtra: isExtra // <--- ส่งค่านี้ไปด้วยเพื่อใช้เช็คราคา
+        }); 
+    }
     setShowNoodleModal(false); setSelectedNoodleDish(null);
   }
+
   const removeFromCart = (uid) => setCart(cart.filter(i => i.uniqueId !== uid))
   const updateNote = (uid, text) => setCart(cart.map(i => i.uniqueId === uid ? { ...i, note: text } : i))
   
+  // ✅ แก้ไขส่วนที่ 2: ระบบคำนวณราคาใหม่ (Verify Price) ป้องกัน F12
   const handleConfirmOrder = async () => {
     if (cart.length === 0) return;
     setIsOrdering(true);
     try {
-      await addDoc(collection(db, "orders"), {
-        table_no: tableNo, items: cart, total_price: cart.reduce((s, i) => s + i.price, 0), status: "kitchen", timestamp: serverTimestamp()
+      // 1. สร้างรายการสินค้าที่ "ตรวจสอบราคาแล้ว" (Verified Items)
+      const verifiedItems = cart.map(cartItem => {
+          // ค้นหาสินค้าตัวจริงจากเมนู (menuItems คือข้อมูลที่ดึงจาก DB เชื่อถือได้)
+          const realProduct = menuItems.find(p => p.id === cartItem.id);
+          
+          if (realProduct) {
+              // ถ้ารายการถูกต้อง ให้ใช้ราคาจริงจากระบบ
+              let safePrice = Number(realProduct.price);
+              
+              // เช็คเงื่อนไขบวกราคาเพิ่ม (เช่น ก๋วยเตี๋ยวพิเศษ +10)
+              if (cartItem.isExtra) {
+                  safePrice += 10;
+              }
+
+              // คืนค่ารายการเดิม แต่เปลี่ยนราคาให้เป็นราคาที่ถูกต้อง (Safe Price)
+              return { ...cartItem, price: safePrice };
+          } else {
+              // กรณีไม่เจอสินค้า (อาจจะถูกลบไปแล้ว) ให้ใช้ค่าเดิมไปก่อน
+              return cartItem; 
+          }
       });
+
+      // 2. คำนวณราคารวมใหม่ จากรายการที่ตรวจสอบแล้วเท่านั้น
+      const safeTotalPrice = verifiedItems.reduce((s, i) => s + i.price, 0);
+
+      // 3. บันทึกลง Database
+      await addDoc(collection(db, "orders"), {
+        table_no: tableNo, 
+        items: verifiedItems, // ส่งรายการที่แก้ราคาให้ถูกแล้ว
+        total_price: safeTotalPrice, // ส่งราคารวมที่คำนวณใหม่
+        status: "kitchen", 
+        timestamp: serverTimestamp()
+      });
+
       setCart([]); setShowCartDetails(false); alert("✅ ส่งออเดอร์เรียบร้อย!");
     } catch (e) { alert("❌ ผิดพลาด: " + e.message); } finally { setIsOrdering(false); }
   }
