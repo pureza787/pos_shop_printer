@@ -9,7 +9,7 @@
 ### 🍽️ โต๊ะ (เปลี่ยนเลข table ได้)
 - [โต๊ะ 1]เปลี่ยนเลข 1 เป็นเลขโต๊ะ(https://pos-shop-iota.vercel.app/?table=1)
 
-### 🧑‍💼 Admin
+### 🧑‍💼 Admin รหัส8888
 - [หน้า Admin](https://pos-shop-iota.vercel.app/admin)
 
 ### 👨‍🍳 ครัว
